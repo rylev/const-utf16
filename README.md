@@ -1,5 +1,5 @@
-[![crates.io](https://img.shields.io/crates/v/const-utf16.svg)](https://crates.io/crates/const-sha1)
-[![docs.rs](https://docs.rs/const-utf16/badge.svg)](https://docs.rs/const-sha1/)
+[![crates.io](https://img.shields.io/crates/v/const-utf16.svg)](https://crates.io/crates/const-ut16)
+[![docs.rs](https://docs.rs/const-utf16/badge.svg)](https://docs.rs/const-ut16/)
 [![Build and Test](https://github.com/rylev/const-utf16/workflows/Build%20and%20Test/badge.svg?event=push)](https://github.com/rylev/const-utf16/actions)
 
 # const-utf16

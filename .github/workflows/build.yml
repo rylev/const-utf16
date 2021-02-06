@@ -1,0 +1,29 @@
+name: Build and Test
+
+on: 
+  pull_request:
+  push:
+    branches:
+      - master
+
+env:
+  RUSTFLAGS: -Dwarnings
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    matrix: 
+        rust: [stable, 1.46]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        profile: minimal
+        override: true
+        components: rustfmt
+    - name: tests
+      run: cargo test 
+    - name: fmt
+      run: cargo fmt -- --check
+      if: matrix.rust == 'stable'

@@ -1,0 +1,13 @@
+[package]
+name = "const-utf16"
+version = "0.1.0"
+authors = ["Ryan Levick <me@ryanlevick.com>"]
+edition = "2018"
+license = "Apache-2.0/MIT"
+repository = "https://github.com/rylev/const-utf16"
+documentation = "https://docs.rs/const-utf16"
+description = "Utf8 to utf16 conversion functions for use in const contexts"
+keywords = ["const", "utf16", "utf8"]
+readme = "README.md"
+
+[dependencies]

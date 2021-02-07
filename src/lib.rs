@@ -8,6 +8,30 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+// /// TODO
+// pub const fn utf16_len(s: &str) -> usize {
+//     s.len() // Obviously incorrect.
+// }
+
+// macro_rules! encode {
+//     ($s:literal) => {{
+//         const LEN: usize = $crate::utf16_len($s);
+
+//         const fn utf16_encode() -> [u16; LEN] {
+//             let mut buffer = [0; LEN];
+//             let mut idx = 0;
+//             // Obviously incorrect.
+//             while idx < LEN {
+//                 buffer[idx] = $s.as_bytes()[idx] as u16;
+//                 idx += 1;
+//             }
+//             buffer
+//         }
+//         const BUFFER: [u16; LEN] = utf16_encode();
+//         &BUFFER
+//     }};
+// }
+
 /// Encode a &str as a utf16 buffer
 ///
 /// # Panics
@@ -31,33 +55,55 @@ pub const fn encode_utf16_with_terminating_null(string: &str) -> Utf16Buffer {
 const fn encode(string: &str, ensure_no_nulls: bool) -> Utf16Buffer {
     let mut result = [0; BUFFER_SIZE];
     let bytes = string.as_bytes();
-    let mut utf8_offset = 0;
     let mut utf16_offset = 0;
-    loop {
-        if let Some((mut code, num_utf8_bytes)) = next_code_point(bytes, utf8_offset) {
-            if code == 0 && ensure_no_nulls {
-                #[allow(unconditional_panic)]
-                let _ = ["Found a null byte in string which should have no null bytes"][usize::MAX];
-            }
-            if (code & 0xFFFF) == code {
-                result[utf16_offset] = code as u16;
-                utf16_offset += 1;
-            } else {
-                // Supplementary planes break into surrogates.
-                code -= 0x1_0000;
-                result[utf16_offset] = 0xD800 | ((code >> 10) as u16);
-                result[utf16_offset + 1] = 0xDC00 | ((code as u16) & 0x3FF);
-                utf16_offset += 2;
-            }
-            utf8_offset += num_utf8_bytes;
+    let mut iterator = CodePointIterator::new(bytes);
+    while let Some((next, mut code)) = iterator.next() {
+        iterator = next;
+        if code == 0 && ensure_no_nulls {
+            #[allow(unconditional_panic)]
+            let _ = ["Found a null byte in string which should have no null bytes"][usize::MAX];
+        }
+        if (code & 0xFFFF) == code {
+            result[utf16_offset] = code as u16;
+            utf16_offset += 1;
         } else {
-            break;
+            // Supplementary planes break into surrogates.
+            code -= 0x1_0000;
+            result[utf16_offset] = 0xD800 | ((code >> 10) as u16);
+            result[utf16_offset + 1] = 0xDC00 | ((code as u16) & 0x3FF);
+            utf16_offset += 2;
         }
     }
 
     Utf16Buffer {
         buffer: result,
         len: utf16_offset,
+    }
+}
+
+struct CodePointIterator<'a> {
+    buffer: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> CodePointIterator<'a> {
+    const fn new(buffer: &'a [u8]) -> Self {
+        Self::new_with_offset(buffer, 0)
+    }
+
+    const fn new_with_offset(buffer: &'a [u8], offset: usize) -> Self {
+        Self { buffer, offset }
+    }
+
+    const fn next(self) -> Option<(Self, u32)> {
+        if let Some((codepont, num_utf8_bytes)) = next_code_point(self.buffer, self.offset) {
+            Some((
+                Self::new_with_offset(self.buffer, self.offset + num_utf8_bytes),
+                codepont,
+            ))
+        } else {
+            None
+        }
     }
 }
 

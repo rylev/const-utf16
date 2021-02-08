@@ -18,7 +18,7 @@ macro_rules! encode {
     }};
     ($s:expr, $null_terminated:ident) => {{
         const __STRING: &'static str = $s;
-        const __EXTRA_BYTE: usize = $crate::encode!(@ $null_terminated);
+    const __EXTRA_BYTE: usize = $crate::encode!(@@ $null_terminated);
         const __STRING_LEN: usize = __STRING.len() + __EXTRA_BYTE;
         const __BUFFER_AND_LEN: (&[u16; __STRING_LEN], usize) = {
             let mut result = [0; __STRING_LEN];
@@ -46,17 +46,17 @@ macro_rules! encode {
             (&{ result }, utf16_offset + __EXTRA_BYTE)
         };
         const __OUT: &[u16; __BUFFER_AND_LEN.1] = unsafe {
-            core::mem::transmute::<
+            ::core::mem::transmute::<
                 &'static &[u16; __STRING_LEN],
                 &'static &[u16; __BUFFER_AND_LEN.1],
             >(&__BUFFER_AND_LEN.0)
         };
         __OUT
     }};
-    (@ null_terminated) => {
+    (@@ null_terminated) => {
         1
     };
-    (@ non_null_terminated) => {
+    (@@ non_null_terminated) => {
         0
     };
 }
@@ -172,7 +172,7 @@ mod tests {
     use super::*;
     #[test]
     fn encode_utf16_works() {
-        const TEXT: &str = "Hello ä日本 語";
+        const TEXT: &str = "Hello \0ä日本 語";
         let expected = TEXT.encode_utf16().collect::<Vec<_>>();
         const RESULT: &[u16] = encode!(TEXT);
 

@@ -12,7 +12,8 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    matrix: 
+    strategy:
+      matrix: 
         rust: [stable, 1.46]
     steps:
     - uses: actions/checkout@v2

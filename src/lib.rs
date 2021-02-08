@@ -14,7 +14,7 @@
 #[macro_export]
 macro_rules! encode {
     ($s:expr) => {{
-        encode!($s, non_null_terminated)
+        $crate::encode!($s, non_null_terminated)
     }};
     ($s:expr, $null_terminated:ident) => {{
         const __STRING: &'static str = $s;
@@ -69,7 +69,7 @@ macro_rules! encode {
 #[macro_export]
 macro_rules! encode_null_terminated {
     ($s:expr) => {{
-        encode!($s, null_terminated)
+        $crate::encode!($s, null_terminated)
     }};
 }
 

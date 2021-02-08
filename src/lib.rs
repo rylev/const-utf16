@@ -176,7 +176,7 @@ mod tests {
         let expected = TEXT.encode_utf16().collect::<Vec<_>>();
         const RESULT: &[u16] = encode!(TEXT);
 
-        assert_eq!(RESULT, &expected);
+        assert_eq!(RESULT, &expected[..]);
     }
 
     #[test]
@@ -185,7 +185,7 @@ mod tests {
         let result = TEXT.encode_utf16().collect::<Vec<_>>();
         const RESULT: &[u16] = encode_null_terminated!(TEXT);
 
-        assert_eq!(&RESULT[0..result.len()], &result);
+        assert_eq!(&RESULT[0..result.len()], &result[..]);
         assert_eq!(&RESULT[result.len()..result.len() + 1], &[0]);
     }
 }

@@ -3,100 +3,103 @@
 //! # Use
 //!
 //! ```
-//! const HELLO_WORLD_UTF16: const_utf16::Utf16Buffer = const_utf16::encode_utf16("Hello, world!");
+//! # #[macro_use]
+//! # extern crate const_utf16;
+//! # fn main() {}
+//! const HELLO_WORLD_UTF16: &[u16] = const_utf16::encode!("Hello, world!");
 //! ```
-#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-/// Encode a &str as a utf16 buffer
-///
-/// # Panics
-///
-/// This function panics if if `string` encodes to a utf16 buffer bigger than [`BUFFER_SIZE`].
-pub const fn encode_utf16(string: &str) -> Utf16Buffer {
-    encode(string, false)
+/// Encode a &str as a utf16 buffer.
+#[macro_export]
+macro_rules! encode {
+    ($s:expr) => {{
+        encode!($s, non_null_terminated)
+    }};
+    ($s:expr, $null_terminated:ident) => {{
+        const __STRING: &'static str = $s;
+    const __EXTRA_BYTE: usize = $crate::encode!(@@ $null_terminated);
+        const __STRING_LEN: usize = __STRING.len() + __EXTRA_BYTE;
+        const __BUFFER_AND_LEN: (&[u16; __STRING_LEN], usize) = {
+            let mut result = [0; __STRING_LEN];
+            let mut utf16_offset = 0;
+
+            let mut iterator = $crate::CodePointIterator::new(__STRING.as_bytes());
+            while let Some((next, mut code)) = iterator.next() {
+                iterator = next;
+                if code == 0 && __EXTRA_BYTE == 1 {
+                    #[allow(unconditional_panic)]
+                    let _ =
+                        ["Found a null byte in string which should have no null bytes"][usize::MAX];
+                }
+                if (code & 0xFFFF) == code {
+                    result[utf16_offset] = code as u16;
+                    utf16_offset += 1;
+                } else {
+                    // Supplementary planes break into surrogates.
+                    code -= 0x1_0000;
+                    result[utf16_offset] = 0xD800 | ((code >> 10) as u16);
+                    result[utf16_offset + 1] = 0xDC00 | ((code as u16) & 0x3FF);
+                    utf16_offset += 2;
+                }
+            }
+            (&{ result }, utf16_offset + __EXTRA_BYTE)
+        };
+        const __OUT: &[u16; __BUFFER_AND_LEN.1] = unsafe {
+            ::core::mem::transmute::<
+                &'static &[u16; __STRING_LEN],
+                &'static &[u16; __BUFFER_AND_LEN.1],
+            >(&__BUFFER_AND_LEN.0)
+        };
+        __OUT
+    }};
+    (@@ null_terminated) => {
+        1
+    };
+    (@@ non_null_terminated) => {
+        0
+    };
 }
 
 /// Encode a &str as a utf16 buffer with a terminating null byte
 ///
 /// # Panics
 ///
-/// This function panics if called with a string that contains any null bytes or
-/// if `string` encodes to a utf16 buffer bigger than [`BUFFER_SIZE`].
-pub const fn encode_utf16_with_terminating_null(string: &str) -> Utf16Buffer {
-    let result = encode(string, true);
-    result.push(0)
+/// This function panics if called with a string that contains any null bytes.
+#[macro_export]
+macro_rules! encode_null_terminated {
+    ($s:expr) => {{
+        encode!($s, null_terminated)
+    }};
 }
 
-const fn encode(string: &str, ensure_no_nulls: bool) -> Utf16Buffer {
-    let mut result = [0; BUFFER_SIZE];
-    let bytes = string.as_bytes();
-    let mut utf8_offset = 0;
-    let mut utf16_offset = 0;
-    loop {
-        if let Some((mut code, num_utf8_bytes)) = next_code_point(bytes, utf8_offset) {
-            if code == 0 && ensure_no_nulls {
-                #[allow(unconditional_panic)]
-                let _ = ["Found a null byte in string which should have no null bytes"][usize::MAX];
-            }
-            if (code & 0xFFFF) == code {
-                result[utf16_offset] = code as u16;
-                utf16_offset += 1;
-            } else {
-                // Supplementary planes break into surrogates.
-                code -= 0x1_0000;
-                result[utf16_offset] = 0xD800 | ((code >> 10) as u16);
-                result[utf16_offset + 1] = 0xDC00 | ((code as u16) & 0x3FF);
-                utf16_offset += 2;
-            }
-            utf8_offset += num_utf8_bytes;
+#[doc(hidden)]
+pub struct CodePointIterator<'a> {
+    buffer: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> CodePointIterator<'a> {
+    #[doc(hidden)]
+    pub const fn new(buffer: &'a [u8]) -> Self {
+        Self::new_with_offset(buffer, 0)
+    }
+
+    #[doc(hidden)]
+    pub const fn new_with_offset(buffer: &'a [u8], offset: usize) -> Self {
+        Self { buffer, offset }
+    }
+
+    #[doc(hidden)]
+    pub const fn next(self) -> Option<(Self, u32)> {
+        if let Some((codepont, num_utf8_bytes)) = next_code_point(self.buffer, self.offset) {
+            Some((
+                Self::new_with_offset(self.buffer, self.offset + num_utf8_bytes),
+                codepont,
+            ))
         } else {
-            break;
+            None
         }
-    }
-
-    Utf16Buffer {
-        buffer: result,
-        len: utf16_offset,
-    }
-}
-
-/// The size of the Utf16Buffer
-pub const BUFFER_SIZE: usize = 1024;
-
-/// A buffer of Utf16 encode bytes
-pub struct Utf16Buffer {
-    buffer: [u16; BUFFER_SIZE],
-    len: usize,
-}
-
-impl Utf16Buffer {
-    /// Get the buffer as a slice
-    pub fn as_slice(&self) -> &[u16] {
-        &self.buffer[0..self.len]
-    }
-
-    /// Push an item on to the buffer.
-    ///
-    /// Note: this takes `mut self` as `&mut self` is not allowed in const contexts
-    const fn push(mut self, element: u16) -> Self {
-        self.buffer[self.len] = element;
-        self.len += 1;
-        self
-    }
-}
-
-impl std::ops::Deref for Utf16Buffer {
-    type Target = [u16];
-
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
-impl std::fmt::Debug for Utf16Buffer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.as_slice())
     }
 }
 
@@ -145,7 +148,6 @@ const fn next_code_point(bytes: &[u8], start: usize) -> Option<(u32, usize)> {
 /// Returns the initial codepoint accumulator for the first byte.
 /// The first byte is special, only want bottom 5 bits for width 2, 4 bits
 /// for width 3, and 3 bits for width 4.
-#[inline]
 const fn utf8_first_byte(byte: u8, width: u32) -> u32 {
     (byte & (0x7F >> width)) as u32
 }
@@ -170,20 +172,20 @@ mod tests {
     use super::*;
     #[test]
     fn encode_utf16_works() {
-        const TEXT: &str = "Hello \0\0ä日本 語";
-        let result = TEXT.encode_utf16().collect::<Vec<_>>();
-        const RESULT: Utf16Buffer = encode_utf16(TEXT);
+        const TEXT: &str = "Hello \0ä日本 語";
+        let expected = TEXT.encode_utf16().collect::<Vec<_>>();
+        const RESULT: &[u16] = encode!(TEXT);
 
-        assert_eq!(&RESULT.as_slice(), &result);
+        assert_eq!(RESULT, &expected);
     }
 
     #[test]
     fn encode_utf16_with_null_byte_works() {
         const TEXT: &str = "Hello ä日本 語";
         let result = TEXT.encode_utf16().collect::<Vec<_>>();
-        const RESULT: Utf16Buffer = encode_utf16_with_terminating_null(TEXT);
+        const RESULT: &[u16] = encode_null_terminated!(TEXT);
 
-        assert_eq!(&RESULT.as_slice()[0..result.len()], &result);
-        assert_eq!(&RESULT.as_slice()[result.len()..result.len() + 1], &[0]);
+        assert_eq!(&RESULT[0..result.len()], &result);
+        assert_eq!(&RESULT[result.len()..result.len() + 1], &[0]);
     }
 }

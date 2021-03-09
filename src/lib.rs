@@ -8,6 +8,7 @@
 //! # fn main() {}
 //! const HELLO_WORLD_UTF16: &[u16] = const_utf16::encode!("Hello, world!");
 //! ```
+#![no_std]
 #![deny(missing_docs)]
 
 /// Encode a &str as a utf16 buffer.
@@ -170,22 +171,23 @@ const CONT_MASK: u8 = 0b0011_1111;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::iter::once;
+
     #[test]
     fn encode_utf16_works() {
         const TEXT: &str = "Hello \0ä日本 語";
-        let expected = TEXT.encode_utf16().collect::<Vec<_>>();
+        let expected = TEXT.encode_utf16();
         const RESULT: &[u16] = encode!(TEXT);
 
-        assert_eq!(RESULT, &expected[..]);
+        assert!(RESULT.iter().cloned().eq(expected));
     }
 
     #[test]
     fn encode_utf16_with_null_byte_works() {
         const TEXT: &str = "Hello ä日本 語";
-        let result = TEXT.encode_utf16().collect::<Vec<_>>();
+        let expected = TEXT.encode_utf16().chain(once(0));
         const RESULT: &[u16] = encode_null_terminated!(TEXT);
 
-        assert_eq!(&RESULT[0..result.len()], &result[..]);
-        assert_eq!(&RESULT[result.len()..result.len() + 1], &[0]);
+        assert!(RESULT.iter().cloned().eq(expected));
     }
 }

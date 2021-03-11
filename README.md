@@ -9,7 +9,7 @@ utf8 to utf16 conversion functions useable in const contexts.
 ## Use
 
 ```rust
-const HELLO_WORLD_UTF16: &[u16]= const_utf16::encode!("Hello, world!");
+const HELLO_WORLD_UTF16: &[u16] = const_utf16::encode!("Hello, world!");
 ```
 
 # Minimum Supported Rust Version (MSRV)
